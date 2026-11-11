@@ -11,12 +11,14 @@ build/
 *.iws
 .DS_Store
 
-# ========= Kotlin / Compose / JVM =========
+# ========= Kotlin / Compile 中间产物 =========
 .kotlin/
 *.class
-*.jar
 *.kt~
-*.keystore
+
+# ========= Android 构建产物中的 jar（保留第三方 libs/ 下的手工 jar） =========
+/app/build/intermediates/**/*.jar
+/app/build/**/*.jar
 
 # ========= Android 构建产物 =========
 captures/
@@ -29,8 +31,7 @@ local.properties
 /code_coverage/
 
 # ========= Room schema 导出（改表时才需要提交） =========
-# 首次跑 ksp 会在 app/schemas/ 下生成 .json，这些应该纳入版本控制以便迁移
-# 但构建中间产物要排除
+# app/schemas/*.json 应纳入版本控制，仅排除构建中间产物
 /app/schemas/**/build/
 
 # ========= 应用私有密钥 =========
