@@ -1,121 +1,167 @@
-# Agent 记账 📒
+# SmartLedger
 
-> 一个跑在 Android 上的全自动记账应用。微信 / 支付宝账单自动识别、自动入账、自动分类，
-> 你只管花钱，账我帮你记。
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.10-blue.svg)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Compose-2024.06.00-4285F4.svg)](https://developer.android.com/jetpack/compose)
+[![Room](https://img.shields.io/badge/Room-2.6.1-green.svg)](https://developer.android.com/jetpack/androidx/releases/room)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 截图
+SmartLedger（Agent 记账）是一款面向 Android 的全自动个人记账应用。应用通过三条独立采集链路自动捕获微信、支付宝的支付通知并解析入账，用户无需手动录入即可完成日常开销记录。
 
-> 下面的占位图请在真机上截取后替换，保存到 `docs/screenshots/` 目录下。
-> 建议各截一张：首页月历、统计页、诊断面板、设置页。
+---
 
-| 首页月历 | 统计页 |
+## Screenshots
+
+> **替换说明**：将以下 4 张真机截图保存至 `docs/screenshots/` 目录，文件名保持一致即可自动渲染。
+> 推荐分辨率 1600×2560 或 1440×2560，横向无边距。
+
+| Home · Calendar | Statistics |
 |---|---|
-| ![首页月历](docs/screenshots/home_calendar.png) | ![统计页](docs/screenshots/stats.png) |
+| ![](docs/screenshots/home_calendar.png) | ![](docs/screenshots/stats.png) |
 
-| 诊断面板 | 设置页 |
+| Diagnostics | Settings |
 |---|---|
-| ![诊断面板](docs/screenshots/diagnostics.png) | ![设置页](docs/screenshots/settings.png) |
+| ![](docs/screenshots/diagnostics.png) | ![](docs/screenshots/settings.png) |
 
-## ✨ 特性
+---
 
-- **三链路自动采集**：通知监听（最快、最准）+ 无障碍读屏 + ML Kit 中文 OCR 兜底
-- **防错账机制**：金额 + 方向 + 商户 + 时间桶 生成去重指纹，置信度低的记录自动拦到待确认队列
-- **待确认红点角标**：首页导航图标右上角实时显示未处理的记录数
-- **月历 + 当天明细**：24 页滑月历（2026–2027），格子内直接标注当日收支，点哪看哪
-- **秒级翻页**：42 格日格由单 Canvas + 原生 TextPaint 一次性绘制，`dumpsys gfxinfo` 量化 Janky 帧 5.5% → 1.9%
-- **Room + Flow 响应式**：联合索引命中主查询，5 路数据流 combine 聚合驱动界面实时刷新
-- **60 / 120Hz 可切换**：仅影响本应用窗口的锁帧率，系统其他 App 不受影响
-- **手机 / 平板自适应**：NavigationBar 在手机、NavigationRail 在大屏，一套代码两种形态
-- **内置诊断面板**：CPU / 内存 / 帧率实时曲线，一键关闭时全部采样停止
+## Features
 
-## 🏗️ 架构
+- **Automated Multi-Channel Capture** — Three independent data ingestion paths ensure maximum coverage:
+  `NotificationListenerService` (primary, lowest latency) · `AccessibilityService` + ML Kit Chinese OCR (fallback for WeChat's custom-drawn UIs) · `ShareActivity` (manual entry via system Share Sheet)
+- **Deduplication via Fingerprinting** — Each transaction is hashed by `sha1(amount + direction + merchant + timeBucket)`; identical entries within a ±3 minute window are treated as duplicates and discarded regardless of capture channel.
+- **Confidence-Based Review Queue** — Records below a configurable confidence threshold are routed to a dedicated pending queue surfaced via a badge on the navigation icon, balancing automation accuracy with manual oversight.
+- **24-Page Horizontal Calendar** — Lazy-paged month grid spanning Jan 2026 through Dec 2027, with per-cell income / expense annotations rendered directly on a single `Canvas` to eliminate per-cell composable overhead.
+- **Single-Canvas Calendar Rendering** — 42-day grid drawn in one Canvas pass using native `TextPaint`; `dumpsys gfxinfo` benchmarks show Janky frames reduced from **5.5% → 1.9%**, and the 90th percentile frame time from **16 ms → 12 ms** under continuous swipe.
+- **Room + Flow Reactive Architecture** — Five data streams (`transactions`, `categories`, `dayTotals`, `pendingCount`, `appSettings`) combined into a single `StateFlow<LedgerUiState>`, driving all screens without manual wiring.
+- **Index-Optimized Persistence Layer** — Composite indices on `(status, occurredAt)` and `(amountCents, occurredAt)` ensure the primary query path hits the index directly without table scans.
+- **Adaptive Layout** — `NavigationBar` on phones, `NavigationRail` on large screens (tablets), selected at runtime from `WindowMetrics`.
+- **60 / 120 Hz Refresh Lock** — Per-window frame rate control via `Window.attributes.preferredRefreshRate`, scoped to the app only without affecting system display settings.
+- **Built-In Diagnostics** — CPU usage, memory footprint, and frame time sampled at 1 Hz and plotted in-app; sampling can be stopped globally from a single toggle in settings.
+
+---
+
+## Architecture
 
 ```
-                              ┌──────────────────────┐
-                              │    ShareActivity     │
-                              │ (长按账单 → 分享入口) │
-                              └──────────┬───────────┘
-                                         │
- ┌─────────────────────────────────────────────────────────────┐
- │                     UI Layer (Compose)                      │
- │  HomeScreen · StatsScreen · LogScreen · Diagnostics · ...   │
- └──────────────────────┬──────────────────────────────────────┘
-                        │ StateFlow / State
- ┌──────────────────────▼──────────────────────────────────────┐
- │                ViewModel (LedgerViewModel)                   │
- │  combine(5 flows) → homeFlow → state                        │
- └──────────────────────┬──────────────────────────────────────┘
-                        │ Flow
- ┌──────────────────────▼──────────────────────────────────────┐
- │  Repository ───── Room DAO (联合索引 status+time / amt+time)  │
- │                                  ↑                           │
- │  NotificationListenerService     │    ScreenReaderService     │
- │  (parse → fingerprint → enqueue) │  (OCR fallback 离线识别)   │
- │                                  │                           │
- │  BootReceiver → KeepAliveService ─┘ (开机自启保活)           │
- └─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                     Entry Points                        │
+│  ShareActivity        NotificationListenerService       │
+│  (Intent.EXTRA_TEXT)  (System-bound, auto-triggered)    │
+│                                    │                    │
+│                    AccessibilityService                 │
+│                    (ML Kit OCR fallback)                │
+└──────────────────────┬─────────────────────────────────┘
+                       │ TransactionEntity.Builder
+                       v
+┌──────────────────────────────────────────────────────────┐
+│                 LedgerRepository                         │
+│  - sha1 fingerprint dedup                                │
+│  - confidence scoring                                    │
+│  - Room write (suspend on I/O dispatcher)               │
+└──────────────────────┬─────────────────────────────────┘
+                       │ Flow<LedgerUiState>
+                       v
+┌──────────────────────────────────────────────────────────┐
+│                 LedgerViewModel                          │
+│  combine(5 streams) → homeFlow → state                  │
+└──────────────────────┬─────────────────────────────────┘
+                       │ StateFlow / State
+                       v
+┌──────────────────────────────────────────────────────────┐
+│                  UI Layer (Jetpack Compose)             │
+│  HomeScreen · StatsScreen · LogScreen                    │
+│  DiagnosticsScreen · SettingsScreen · AddTransactionSheet│
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│                 Persistence (Room 2.6.1)                 │
+│  tables: transactions · categories                       │
+│  indices: (status, occurredAt) · (amountCents, occurredAt)│
+│  migrations: 1 → 2 → 3 (see data/Migrations.kt)         │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│           Lifecycle & Reliability Services              │
+│  BootReceiver  →  KeepAliveService (foreground, boot)    │
+│  AccessibilityHealer (re-enables read screen after kill) │
+│  ServiceHealth (runtime health checks)                  │
+└──────────────────────────────────────────────────────────┘
 ```
 
-**采集链路说明**（三条独立并行，任一命中即入账）：
-1. **NotificationListenerService**：系统把微信 / 支付宝的支付通知直接派发过来，文本解析后用指纹去重，最稳。
-2. **AccessibilityService + ML Kit OCR**：微信自绘界面读不到节点文本时，截当前屏走本地 OCR（模型打包在 APK 里，全程离线，不点击、不上传）。
-3. **ShareActivity 兜底**：支付宝账单页长按 → 分享 → Agent 记账，手动入口，解析 `Intent.EXTRA_TEXT`。
+### Capture Flow
 
-**指纹去重**：`sha1(amount + direction + merchant + 时间桶)`，同金额同商户在 ±3 分钟内视为同一笔，避免通知、OCR、分享三条链路重复入账。
+All three capture channels run **concurrently and independently**. Upon receiving a payment notification, each channel:
 
-## 🛠 技术栈
+1. Extracts candidate text from the notification body, OCR result, or share intent.
+2. Runs `PaymentParser` to pull amount (Long, cents), direction (INCOME / EXPENSE / TRANSFER / REFUND), merchant, and confidence score.
+3. Computes the dedup fingerprint and queries Room. If an identical record exists within ±3 minutes, the record is discarded immediately.
+4. If confidence < threshold, the record is inserted with status `PENDING`; otherwise `COMPLETED`.
+5. The five data streams reactively propagate the update to all subscribed Compose screens.
 
-| 领域 | 选型 |
+---
+
+## Tech Stack
+
+| Area | Choice |
 |---|---|
-| 语言 | Kotlin 2.0.10 |
-| UI | Jetpack Compose BOM `2024.06.00` · Material3 |
-| 持久化 | Room 2.6.1 (KSP) · Flow |
-| 后台 | NotificationListenerService · AccessibilityService |
-| OCR | ML Kit Text Recognition Chinese `16.0.1`（bundled，离线） |
-| 并发 | Kotlin Coroutines · Flow |
-| 构建 | AGP 8.5.2 · Gradle KTS · version catalog |
-| SDK | min 26 · compile / target 34 · JDK 17 |
+| Language | Kotlin 2.0.10 |
+| UI | Jetpack Compose BOM 2024.06.00 · Material 3 |
+| State | Coroutines · Flow · `StateFlow<LedgerUiState>` |
+| Persistence | Room 2.6.1 · KSP code gen · schema version 3 |
+| OCR | ML Kit Text Recognition Chinese 16.0.1 (bundled model, offline) |
+| Backend Services | NotificationListenerService · AccessibilityService |
+| AGP / Gradle | 8.5.2 · KTS · Version catalog |
+| SDK | minSdk 26 · compileSdk / targetSdk 34 · JDK 17 |
 
-## 📦 构建
+---
+
+## Build
+
+### Prerequisites
+
+- JDK 17 or later
+- Android Studio Hedgehog (2023.1.1) or later
+- Android SDK Platform 34
+
+### Gradle
 
 ```bash
-# 克隆
-git clone https://github.com/<your-username>/SmartLedger.git
-cd SmartLedger
-
-# 首次构建会自动下载 Gradle Wrapper 和依赖
 # Windows
 .\gradlew.bat assembleDebug
+
 # macOS / Linux
 ./gradlew assembleDebug
 
-# 产物位置
+# Output
 # app/build/outputs/apk/debug/app-debug.apk
 ```
 
-**前置条件**：
-- JDK 17+
-- Android Studio Hedgehog / Iguana（或更高）
-- Android SDK Platform 34
+### Install on Device
 
-**安装到设备**：
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## 🔐 权限清单
+### Release Build Note
 
-| 权限 | 用途 | 获取方式 |
+`build.gradle.kts` sets `isMinifyEnabled = false` for release builds. R8 / ProGuard is intentionally disabled because the ML Kit OCR bundled model file paths may be rewritten during obfuscation, causing runtime load failures. Enable after ProGuard keep rules are verified.
+
+---
+
+## Permissions
+
+| Permission | Purpose | Acquisition |
 |---|---|---|
-| `POST_NOTIFICATIONS` | Android 13+ 前台服务通知 | 运行时弹窗 |
-| `RECEIVE_BOOT_COMPLETED` | 开机自启常驻服务 | 自动授予 |
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | 减少被系统后台清理 | 设置页手动 |
-| `BIND_NOTIFICATION_LISTENER_SERVICE` | 通知监听核心能力 | 设置页手动开启 |
-| `BIND_ACCESSIBILITY_SERVICE` | 无障碍读屏核心能力 | 设置页手动开启 |
-| `WRITE_SECURE_SETTINGS` | 读屏被关后自动恢复 | **ADB 一次性**（系统签名权限） |
-| `DUMP` / `READ_LOGS` / `PACKAGE_USAGE_STATS` | 诊断面板读系统日志 | **ADB 一次性**（development 权限） |
+| `POST_NOTIFICATIONS` | Foreground-service notifications on Android 13+ | Runtime dialog |
+| `RECEIVE_BOOT_COMPLETED` | Start keep-alive foreground service after boot | Auto-granted |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Reduce aggressive background kills | User-initiated settings flow |
+| `BIND_NOTIFICATION_LISTENER_SERVICE` | Core: bind to notification event stream | User opens Settings → Notifications → allow |
+| `BIND_ACCESSIBILITY_SERVICE` | Core: capture node tree + perform screen capture | User opens Settings → Accessibility → enable |
+| `WRITE_SECURE_SETTINGS` | Auto-re-enable AccessibilityService after kill | **ADB one-time** (signature-level) |
+| `DUMP` · `READ_LOGS` · `PACKAGE_USAGE_STATS` | Diagnostics panel reads system dropbox / usage events | **ADB one-time** (development-only) |
 
-ADB 授予一次性权限（调试用，生产构建通常移除）：
+One-time adb grants (debugging only, production builds should remove):
+
 ```bash
 adb shell pm grant com.example.smartledger android.permission.WRITE_SECURE_SETTINGS
 adb shell pm grant com.example.smartledger android.permission.DUMP
@@ -123,47 +169,64 @@ adb shell pm grant com.example.smartledger android.permission.READ_LOGS
 adb shell pm grant com.example.smartledger android.permission.PACKAGE_USAGE_STATS
 ```
 
-## 🧩 目录结构
+---
+
+## Project Layout
 
 ```
 SmartLedger/
 ├── app/src/main/
 │   ├── java/com/example/smartledger/
-│   │   ├── MainActivity.kt             # 入口 Activity
-│   │   ├── SmartLedgerApp.kt           # Application（Room / Worker 初始化）
-│   │   ├── ShareActivity.kt            # 分享入口
-│   │   ├── data/                       # Room Entity · DAO · Repository · Migration
-│   │   ├── service/                    # 通知监听 · 读屏 · 保活 · 开机自启
-│   │   ├── parser/                     # 通知文本解析 + OCR 后处理
-│   │   ├── util/                       # Format · FrameRateControl · DiagnosticsMonitor
-│   │   └── ui/                         # Compose 界面 + ViewModel
+│   │   ├── MainActivity.kt              # Application entry point
+│   │   ├── SmartLedgerApp.kt            # Application subclass
+│   │   ├── ShareActivity.kt             # Manual capture (Intent.EXTRA_TEXT)
+│   │   ├── data/                        # Entity · DAO · Repository · Migration
+│   │   ├── service/                     # NotificationListener · Accessibility · Boot
+│   │   ├── parser/                      # PaymentParser · CategoryClassifier
+│   │   ├── util/                        # Format · FrameRateControl · DiagnosticsMonitor
+│   │   └── ui/                          # Compose screens + LedgerViewModel
 │   ├── res/
 │   └── AndroidManifest.xml
-├── app/schemas/                        # Room schema 导出（纳入版本控制，用于写 Migration）
-├── docs/screenshots/                   # README 用的截图（运行时放进来）
-├── gradle/libs.versions.toml           # Version catalog
-└── gradle/wrapper/
+├── app/schemas/                          # Room schema JSON (committed for Migration history)
+├── docs/screenshots/                     # README screenshot slots (see Screenshots section)
+├── gradle/libs.versions.toml             # Version catalog
+├── gradle/wrapper/
+├── LICENSE
+├── README.md
+└── CONTRIBUTING.md
 ```
 
-## 🔧 Release 构建与混淆
+---
 
-`build.gradle.kts` 里 `release` 构建类型 `isMinifyEnabled = false`，**故意未开启 R8 混淆**，原因：
-- ML Kit OCR 的 bundled model 文件路径在混淆后可能被重命名，运行时找不到。
-- 当前未配置完整的 ProGuard keep 规则，贸然开启会导致运行时崩溃。
+## Roadmap
 
-等 OCR 路径问题解决后，建议开启混淆并补充 `proguard-rules.pro` 中的 keep 规则。
+- [ ] StatsScreen monthly trend charts (income vs. expense bars)
+- [ ] Merchant-rule-based auto-categorization (regex / keyword matching)
+- [ ] WebDAV / custom HTTP cloud sync
+- [ ] CSV import (Alipay monthly statement export)
+- [ ] Confidence-threshold per-channel tuning via settings
 
-## 🗺️ 路线图
+---
 
-- [ ] 统计页趋势图（月度支出 / 收入柱状）
-- [ ] 规则引擎：按商户自动分类（正则 / 关键词）
-- [ ] 云同步（WebDAV / 自建 HTTP）
-- [ ] 导入 CSV（支付宝账单导出）
+## Contributing
 
-## 🤝 贡献
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development environment setup, Room Migration workflow, and commit message conventions.
 
-欢迎提 PR 和 Issue。开发环境配置见 `CONTRIBUTING.md`。
+### Commit Message Convention
 
-## 📄 许可
+This project follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
-MIT License — 见 `LICENSE`。
+| Prefix | Description |
+|---|---|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `perf:` | Performance optimization |
+| `refactor:` | Code change that neither fixes a bug nor adds a feature |
+| `docs:` | Documentation changes |
+| `chore:` | Miscellaneous maintenance |
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE).

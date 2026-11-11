@@ -1,13 +1,19 @@
-# 贡献指南
+# Contributing
 
-## 开发环境
+Thank you for considering a contribution to SmartLedger. This document describes the development environment, build process, and commit conventions.
 
-- JDK 17+
-- Android Studio Hedgehog 或更高版本（Gradle Sync 会自动下载依赖）
-- Android SDK Platform 34
-- Windows / macOS / Linux 均可
+## Development Environment
 
-## 构建
+| Tool | Version |
+|---|---|
+| JDK | 17 or later |
+| Android Studio | Hedgehog (2023.1.1) or later |
+| Android SDK Platform | 34 |
+| OS | Windows / macOS / Linux |
+
+No additional system dependencies are required. Gradle Sync on first open will download all required dependencies.
+
+## Build & Run
 
 ```bash
 # Windows
@@ -15,60 +21,80 @@
 
 # macOS / Linux
 ./gradlew assembleDebug
+```
 
-# 仅 app 模块
+Or run from Android Studio with **Shift + F10**.
+
+## Install on a Physical Device
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.example.smartledger/.MainActivity
+```
+
+Enable **USB debugging** in Android Developer Options and accept the host RSA key prompt on the device.
+
+## Room Schema & Migrations
+
+`app/build.gradle.kts` exports Room schema JSON to `app/schemas/` via KSP. Every change to an `@Entity` class must be accompanied by the following checklist:
+
+1. Run `./gradlew :app:compileDebugKotlin` to regenerate schema JSON.
+2. Commit the new `.json` file in `app/schemas/<database>/<version>.json`.
+3. Add a migration class in `data/Migrations.kt` with `MIGRATION_<from>_<to>`.
+4. Register the migration in `AppDatabase.kt` under `Room.databaseBuilder(...).addMigrations(...)`.
+5. Update the `version` property on `@Database` to the new integer.
+
+> **Important**: Incremental schema changes that drop existing columns or tables are breaking and require a destructive migration or a data reset for existing users.
+
+## Code Style
+
+SmartLedger follows the [official Kotlin style guide](https://kotlinlang.org/docs/coding-conventions.html) and the default formatting shipped with Android Studio.
+
+Additional project conventions:
+
+- **Compose screens** use the `Screen` suffix: `HomeScreen`, `StatsScreen`, `DiagnosticsScreen`.
+- **State container** is `LedgerViewModel` — single `StateFlow<LedgerUiState>` drives all UI.
+- **DAO functions returning Flow** are the primary query path; synchronous queries are allowed only for one-shot writes.
+- **All monetary values** are represented as `Long` in cents. Floating-point is not used anywhere in the data layer.
+- **Package layout**: `data/` (entities + DAO + repository + migrations) · `service/` (background capture & recovery) · `parser/` (text extraction + classification) · `util/` (formatting + system utilities) · `ui/` (Compose screens + ViewModel + theme).
+
+## Static Analysis
+
+No ktlint / detekt configuration is currently enforced. Before submitting a PR, please ensure:
+
+```bash
 ./gradlew :app:assembleDebug
 ```
 
-首次构建 Gradle Wrapper 会自动下载依赖。
+compiles cleanly with no warnings introduced by your change.
 
-## 安装到设备
+## Submitting a Pull Request
 
-```bash
-# 直接用 adb
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+1. Fork this repository on GitHub.
+2. Create a feature branch:
 
-# 或者 Android Studio 里点 Run（Shift + F10）
-```
+   ```bash
+   git checkout -b feat/your-feature
+   ```
 
-## Room Schema 迁移
+   Use one of the Conventional Commits prefixes as the branch type (`feat`, `fix`, `perf`, `refactor`, `docs`).
 
-`app/build.gradle.kts` 已配置 KSP 导出 schema 到 `app/schemas/`。
+3. Commit your changes. See the commit message conventions in `README.md` → Contributing.
 
-每次修改 Entity 后：
-1. 跑一次 `./gradlew :app:compileDebugKotlin`
-2. 把 `app/schemas/` 下新生成的 `.json` 提交上来
-3. 在 `data/Migrations.kt` 里补齐 Migration 类（版本号必须与 schema 版本对齐）
-4. 在 `AppDatabase.kt` 的 `migrations` 里注册
+4. Push the branch and open a Pull Request. The PR body should describe:
+   - What changed (scope)
+   - Why (motivation)
+   - How you verified it ran on a device
 
-## 代码规范
+## Issue Guidelines
 
-- Kotlin 官方代码风格，Android Studio 默认格式化即可
-- Compose 页面以 `Screen` 后缀命名（`HomeScreen`、`StatsScreen`）
-- DAO 查询返回 Flow，Repository 层再做组合
-- 金额单位统一用 Long（分），避免浮点误差
-- 数据层包目录：`data/`（实体 + DAO + Repository）
-- UI 层包目录：`ui/`（Compose 页面 + ViewModel）
-- 采集服务包目录：`service/`（通知监听、读屏、保活）
-- 工具类包目录：`util/`
+When filing a bug report, include:
 
-## 静态检查
+- Android version, device model, and screen size
+- Exact steps to reproduce
+- Expected behavior vs. actual behavior
+- Logcat excerpt if relevant (`adb logcat -d -s SmartLedgerService PaymentParser DiagnosticsMonitor`)
 
-目前没有配置 ktlint / detekt。提 PR 后我会手动 review，
-建议在本地先跑一遍 `./gradlew :app:assembleDebug` 确保能编译通过。
+---
 
-## 提 PR
-
-1. Fork 本仓库
-2. 新建特性分支：`git checkout -b feature/your-feature`
-3. 提交改动：`git commit -m "feat: what your change does"`
-4. 推送：`git push origin feature/your-feature`
-5. 发起 Pull Request，描述清楚改了什么、为什么改、有没有测试
-
-Commit message 约定（Conventional Commits）：
-- `feat:` 新功能
-- `fix:` 修 Bug
-- `perf:` 性能优化
-- `docs:` 文档
-- `refactor:` 重构
-- `chore:` 杂项
+By contributing, you agree that your contributions will be licensed under the project's [MIT License](LICENSE).
