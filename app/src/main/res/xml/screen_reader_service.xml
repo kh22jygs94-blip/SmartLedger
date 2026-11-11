@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    读屏识别原型配置。
+    只监听窗口状态/内容变化，只读取当前活动窗口的节点文本，不做任何点击、手势等操作。
+    canTakeScreenshot 仅用于「节点树读不到文本」时的兜底截图 OCR（微信这类自绘界面）。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
+    android:description="@string/screen_reader_desc"
+    android:notificationTimeout="100" />

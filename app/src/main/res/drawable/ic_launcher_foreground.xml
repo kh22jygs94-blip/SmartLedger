@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!--
+        账本轮廓。包围盒 31..77 × 25..83，中心正好落在 (54,54)，
+        在自适应图标的 72dp 安全区内且上下左右留白相等。
+    -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M38,25h32a7,7 0 0 1,7 7v44a7,7 0 0 1,-7 7h-32a7,7 0 0 1,-7 -7v-44a7,7 0 0 1,7 -7z" />
+    <!-- 三条账目线，左右边距各 11，首尾两条上下边距各 16 -->
+    <path
+        android:fillColor="#FF2E7D6F"
+        android:pathData="M42,41h24v4h-24z" />
+    <path
+        android:fillColor="#FF2E7D6F"
+        android:pathData="M42,52h24v4h-24z" />
+    <path
+        android:fillColor="#FF7FB3A8"
+        android:pathData="M42,63h16v4h-16z" />
+</vector>
