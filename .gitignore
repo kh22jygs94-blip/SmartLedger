@@ -1,0 +1,56 @@
+# ========= Gradle =========
+.gradle/
+build/
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# ========= Android Studio / IntelliJ =========
+.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# ========= Kotlin / Compile 中间产物 =========
+.kotlin/
+*.class
+*.kt~
+
+# ========= Android 构建产物中的 jar（保留第三方 libs/ 下的手工 jar） =========
+/app/build/intermediates/**/*.jar
+/app/build/**/*.jar
+
+# ========= Android 构建产物 =========
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# ========= 测试与覆盖率 =========
+/outputs/
+/code_coverage/
+
+# ========= Room schema 导出（改表时才需要提交） =========
+# app/schemas/*.json 应纳入版本控制，仅排除构建中间产物
+/app/schemas/**/build/
+
+# ========= 应用私有密钥 =========
+*.jks
+*.keystore
+keystore.properties
+
+# ========= GitHub Desktop 本地缓存 =========
+.github-desktop-cache/
+
+# ========= 系统文件 =========
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ========= 临时文件 =========
+*.log
+*.tmp
+*.bak
+*.swp
+*~

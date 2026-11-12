@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 读屏服务用前台服务常驻，避免被系统清理后台时连带杀掉 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 开机 / 覆盖安装后自动把常驻服务拉起来，不需要用户手动打开 App -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 申请忽略电池优化，减少被系统在休眠时清理 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!--
+        可选能力：读屏被系统关掉后自动恢复。
+        该权限属于系统签名权限，普通安装拿不到，只能由用户手动执行一次
+        adb shell pm grant com.example.smartledger android.permission.WRITE_SECURE_SETTINGS 授予。
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!--
+        诊断模块：读取 dropbox 里的崩溃 / ANR / tombstone 事件，需要 DUMP；
+        读取系统日志缓冲区需要 READ_LOGS。两者都是 development 级权限，
+        普通安装无效，只能由 adb 一次性授予。
+    -->
+    <uses-permission
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- DropBoxManagerService 的 dump 入口额外校验用量访问权限 -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <application
+        android:name=".SmartLedgerApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SmartLedger">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.SmartLedger">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            分享记账：支付宝/微信账单页长按文本 → 分享 → Agent 记账。
+            不需要任何敏感权限，是通知监听之外最主要的兜底入口。
+        -->
+        <activity
+            android:name=".ShareActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.SmartLedger">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            通知监听服务：系统通过这个权限绑定服务，从而把支付类通知派发过来。
+            exported 必须为 true，否则 Android 12+ 系统无法绑定。
+        -->
+        <service
+            android:name=".service.PaymentNotificationListener"
+            android:exported="true"
+            android:label="@string/notification_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!--
+            读屏识别原型：节点树读不到文本时（微信自绘界面），截当前屏做本地 OCR。
+            OCR 模型打包在 APK 内，全程离线；不点击、不上传、不落盘。
+        -->
+        <service
+            android:name=".service.ScreenReaderService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:label="@string/screen_reader_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="本地账单识别需要读屏服务长期驻留" />
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/screen_reader_service" />
+        </service>
+
+        <!--
+            开机自启的占位前台服务：读屏服务只能由系统绑定，
+            这里先把进程挂成前台，等系统绑定读屏时进程已经存在。
+        -->
+        <service
+            android:name=".service.KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="本地账单识别需要常驻进程等待系统绑定读屏服务" />
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

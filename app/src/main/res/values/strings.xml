@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Agent 记账</string>
+    <string name="notification_listener_label">Agent 记账 · 自动记录</string>
+    <string name="screen_reader_label">Agent 记账 · 读屏识别</string>
+    <string name="screen_reader_desc">读取微信、支付宝等应用的账单页面文字，在本机识别消费金额。不上传、不保存原始屏幕内容。</string>
+</resources>
