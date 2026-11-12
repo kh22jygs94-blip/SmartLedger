@@ -126,6 +126,13 @@ All three capture channels run **concurrently and independently**. Upon receivin
 - Android Studio Hedgehog (2023.1.1) or later
 - Android SDK Platform 34
 
+### Clone
+
+```bash
+git clone https://github.com/kh22jygs94-blip/SmartLedger.git
+cd SmartLedger
+```
+
 ### Gradle
 
 ```bash
