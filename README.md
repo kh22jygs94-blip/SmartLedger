@@ -9,24 +9,6 @@ SmartLedger（Agent 记账）是一款面向 Android 的全自动个人记账应
 
 ---
 
-## Screenshots
-
-| Home · Calendar | Statistics |
-|---|---|
-| ![Home](docs/screenshots/home_calendar.png) | ![Statistics](docs/screenshots/stats.png) |
-
-| Diagnostics | Logs |
-|---|---|
-| ![Diagnostics](docs/screenshots/diagnostics.png) | ![Logs](docs/screenshots/logs.png) |
-
-| Settings |
-|---|
-| ![Settings](docs/screenshots/settings.png) |
-
-<sub>All screenshots captured on Lenovo TB321FU, 1600 × 2560.</sub>
-
----
-
 ## Features
 
 - **Automated Multi-Channel Capture** — Three independent data ingestion paths ensure maximum coverage:
@@ -198,7 +180,6 @@ SmartLedger/
 │   ├── res/
 │   └── AndroidManifest.xml
 ├── app/schemas/                          # Room schema JSON (committed for Migration history)
-├── docs/screenshots/                     # README screenshot slots (see Screenshots section)
 ├── gradle/libs.versions.toml             # Version catalog
 ├── gradle/wrapper/
 ├── LICENSE
