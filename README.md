@@ -11,16 +11,19 @@ SmartLedger（Agent 记账）是一款面向 Android 的全自动个人记账应
 
 ## Screenshots
 
-> **替换说明**：将以下 4 张真机截图保存至 `docs/screenshots/` 目录，文件名保持一致即可自动渲染。
-> 推荐分辨率 1600×2560 或 1440×2560，横向无边距。
-
 | Home · Calendar | Statistics |
 |---|---|
-| ![](docs/screenshots/home_calendar.png) | ![](docs/screenshots/stats.png) |
+| ![Home](docs/screenshots/home_calendar.png) | ![Statistics](docs/screenshots/stats.png) |
 
-| Diagnostics | Settings |
+| Diagnostics | Logs |
 |---|---|
-| ![](docs/screenshots/diagnostics.png) | ![](docs/screenshots/settings.png) |
+| ![Diagnostics](docs/screenshots/diagnostics.png) | ![Logs](docs/screenshots/logs.png) |
+
+| Settings |
+|---|
+| ![Settings](docs/screenshots/settings.png) |
+
+<sub>All screenshots captured on Lenovo TB321FU, 1600 × 2560.</sub>
 
 ---
 
